@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatGoogle } from '@langchain/google';
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -7,9 +8,9 @@ if (!apiKey) {
 }
 
 // We will use gemini-2.5-flash for cost-effective, fast entity extraction
-export const llm = new ChatGoogleGenerativeAI({
+export const llm = new ChatGoogle({
     apiKey: apiKey || 'placeholder',
-    modelName: 'gemini-2.5-flash',
+    model: 'gemini-2.5-flash',
     maxOutputTokens: 2048,
     temperature: 0, // 0 for deterministic extraction tasks
 });
