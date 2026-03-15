@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5.23.0 # Or the latest version
+    ports:
+      - "7474:7474" # HTTP Browser
+      - "7687:7687" # Bolt port (for the driver)
+    environment:
+      - NEO4J_AUTH=neo4j/password123 # DON'T use this in prod!
+      - NEO4J_PLUGINS=["apoc"] # Often useful for graph algorithms
+    volumes:
+      - ./data/neo4j:/data

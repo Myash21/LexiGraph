@@ -5,8 +5,8 @@ A high-performance API service responsible for PDF ingestion, Knowledge Graph co
 
 ## 2. Tech Stack
 - **Language:** TypeScript (Node.js/Bun)
-- **Framework:** Express.js or Fastify (Type-safe)
-- **AI Orchestration:** LangChain.js / LlamaIndex.ts
+- **Framework:** Fastify (Type-safe)
+- **AI Orchestration:** LangChain.js
 - **Databases:** Neo4j (Graph), Pinecone/Supabase (Vector)
 - **Testing:** Vitest (Unit/Integration)
 - **Monitoring:** LangSmith / Helicone
