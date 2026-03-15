@@ -1,0 +1,80 @@
+import { supabase } from '../config/supabase';
+import { neo4jDriver } from '../config/neo4j';
+import { getEmbedding } from '../config/embeddings';
+import { extractGraphEntities } from './extraction';
+import { llm } from '../config/llm';
+
+/**
+ * Perform a Hybrid Search (Vector + Graph) to answer user queries with high context.
+ */
+export const answerQuery = async (query: string): Promise<string> => {
+    console.log(`Processing Query: "${query}"`);
+
+    // --- 1. Vector Search (Semantic Context) ---
+    console.log("Generating query embedding and querying vector DB...");
+    const queryEmbedding = await getEmbedding(query);
+    
+    // Calls a Supabase RPC function we define in SQL (match_documents)
+    const { data: vectorResults, error: vectorError } = await supabase.rpc('match_documents', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.7, // Only get somewhat relevant chunks
+        match_count: 3        // Top K chunks
+    });
+
+    if (vectorError) {
+        console.error("Vector Search Error:", vectorError);
+    }
+    const vectorContextText = (vectorResults || []).map((v: any) => v.content).join('\n---\n');
+
+    // --- 2. Graph Search (Relational Context) ---
+    console.log("Extracting entities from query and traversing graph DB...");
+    // We use the same extraction LLM to figure out what entities the user is asking about
+    const queryEntities = await extractGraphEntities(query);
+    const nodeIds = queryEntities.nodes.map(n => n.id);
+
+    let graphContextText = "";
+    if (nodeIds.length > 0) {
+        const session = neo4jDriver.session();
+        try {
+            // Find 1-hop neighborhood for all extracted node IDs
+            const result = await session.run(`
+                UNWIND $nodeIds AS id
+                MATCH (n:Entity {id: id})-[r]-(neighbor:Entity)
+                RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
+                LIMIT 15
+            `, { nodeIds });
+            
+            graphContextText = result.records.map(rec => 
+                `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
+            ).join('\n');
+            
+        } catch (err) {
+            console.error("Graph Traversal Error:", err);
+        } finally {
+            await session.close();
+        }
+    }
+
+    // --- 3. Synthesize Final Answer with LLM ---
+    console.log("Synthesizing final response...");
+    
+    const finalPrompt = `
+    You are LexiGraph, a highly intelligent Knowledge Assistant.
+    Answer the user's question based strictly on the provided Contexts. 
+    If the contexts do not contain the answer, say "I don't have enough information."
+    
+    VECTOR CONTEXT (Semantic Chunks):
+    ${vectorContextText || "No semantic context found."}
+    
+    GRAPH CONTEXT (Entity Relations):
+    ${graphContextText || "No relational context found."}
+    
+    USER QUESTION:
+    "${query}"
+    
+    Your factual answer:
+    `;
+
+    const response = await llm.invoke(finalPrompt);
+    return response.content as string;
+};
