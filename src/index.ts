@@ -9,11 +9,16 @@ server.get('/health', async (request, reply) => {
     return { status: 'ok', service: 'LexiGraph API' };
 });
 
+import cors from '@fastify/cors';
+import apiRoutes from './routes/index';
 import { verifyNeo4jConnection } from './config/neo4j';
 import { getEmbedding } from './config/embeddings';
 
 const start = async () => {
     try {
+        await server.register(cors);
+        await server.register(apiRoutes);
+
         console.log('Verifying Database connections...');
         await verifyNeo4jConnection();
         // Supabase REST client doesn't need explicit connect(), but we could do a ping query later.
