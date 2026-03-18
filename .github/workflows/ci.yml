@@ -7,7 +7,7 @@ jobs:
       neo4j:
         image: neo4j:5.23.0
         ports: ["7474:7474","7687:7687"]
-        env: NEO4J_AUTH: neo4j/password123
+        env: NEO4J_AUTH = neo4j/password123
         options: >-
           --health-cmd "curl -f http://localhost:7474/db/data/ || exit 1"
           --health-interval 10s
@@ -26,8 +26,8 @@ jobs:
           for i in {1..20}; do
             curl --silent --fail http://localhost:3000/ || sleep 1 && break
           done
-      #- name: Run unit tests
-      #  run: npm test
+      - name: Run unit tests
+        run: bun test
       - name: Run smoke cycle (ingest/query/cleanup)
         run: npm run smoke:cycle
         env:
