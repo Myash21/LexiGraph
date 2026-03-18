@@ -14,7 +14,10 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "test": "vitest run"
+    "test": "bun test",
+    "smoke": "node scripts/smoke-test.js",
+    "smoke:cleanup": "node scripts/cleanup-smoke.js",
+    "smoke:cycle": "node scripts/smoke-cycle.js"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
@@ -25,6 +28,7 @@
     "@langchain/core": "^1.1.32",
     "@langchain/google": "^0.1.6",
     "@langchain/google-genai": "^2.1.25",
+    "@langchain/groq": "^1.1.5",
     "@langchain/openai": "^1.2.13",
     "@langchain/textsplitters": "^1.0.1",
     "@pinecone-database/pinecone": "^7.1.0",
