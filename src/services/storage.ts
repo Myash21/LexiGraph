@@ -15,7 +15,7 @@ export const saveToVectorDB = async (content: string, embedding: number[], metad
     }
 };
 
-export const saveToGraphDB = async (graphData: GraphData) => {
+export const saveToGraphDB = async (graphData: GraphData, metadata: any = {}) => {
     if (graphData.nodes.length === 0 && graphData.edges.length === 0) return;
 
     const session = neo4jDriver.session();
@@ -26,8 +26,9 @@ export const saveToGraphDB = async (graphData: GraphData) => {
                 await tx.run(`
                     UNWIND $nodes AS node
                     MERGE (n:Entity {id: node.id})
-                    SET n.type = node.type
-                `, { nodes: graphData.nodes });
+                    SET n.type = node.type,
+                        n.source = coalesce($sourceMetadata, n.source)
+                `, { nodes: graphData.nodes, sourceMetadata: metadata?.testRun || metadata?.source || null });
             }
 
             // 2. Insert Edges (Using APOC for dynamic relationship types based on LLM output)

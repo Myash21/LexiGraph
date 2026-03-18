@@ -30,7 +30,7 @@ export const ingestDocument = async (text: string, sourceMetadata: any = {}) => 
             const graphData = await extractGraphEntities(chunk);
             
             // D. Write Nodes and Edges to Graph DB (Neo4j)
-            await saveToGraphDB(graphData);
+            await saveToGraphDB(graphData, sourceMetadata);
             
         } catch (error) {
             console.error(`Error processing chunk ${count}:`, error);
