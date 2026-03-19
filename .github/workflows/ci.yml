@@ -1,7 +1,25 @@
 name: CI
+
 on: [push, pull_request]
+
 jobs:
-  test:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run unit tests
+        run: bun run test:unit
+
+  integration-tests:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     services:
       neo4j:
@@ -19,8 +37,7 @@ jobs:
           --health-retries 20
     steps:
       - uses: actions/checkout@v5
-      
-      # You need this to use 'bun test'
+
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
@@ -35,37 +52,23 @@ jobs:
       - name: Start app server
         run: |
           npm run dev &
-          # Fixed the loop: 'sleep 1' should happen BEFORE the 'break' logic
           for i in {1..20}; do
             curl --silent --fail http://localhost:3000/ && break || sleep 2
           done
         env:
-          # Your app needs these to start up!
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PRIVATE_KEY: ${{ secrets.SUPABASE_PRIVATE_KEY }}
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USER: neo4j
           NEO4J_PASSWORD: password123
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'gsk_placeholder' }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-      - name: Run unit tests
-        run: bun test
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          SUPABASE_PRIVATE_KEY: ${{ secrets.SUPABASE_PRIVATE_KEY || 'placeholder' }}
-          NEO4J_URI: bolt://localhost:7687
-          NEO4J_USER: neo4j
-          NEO4J_PASSWORD: password123
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'gsk_placeholder' }}
-
-      - name: Run smoke cycle
-        run: npm run smoke:cycle
+      - name: Run integration tests
+        run: bun run test:integration
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PRIVATE_KEY: ${{ secrets.SUPABASE_PRIVATE_KEY }}
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USER: neo4j
           NEO4J_PASSWORD: password123
-          BASE_URL: http://localhost:3000
-          TEST_RUN: smoke-ci-${{ github.run_id }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'gsk_placeholder' }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

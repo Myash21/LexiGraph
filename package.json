@@ -15,9 +15,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "test": "bun test",
-    "smoke": "node scripts/smoke-test.js",
-    "smoke:cleanup": "node scripts/cleanup-smoke.js",
-    "smoke:cycle": "node scripts/smoke-cycle.js"
+    "test:unit": "bunx vitest run --include '**/*.unit.test.ts'",
+    "test:integration": "bunx vitest run --include '**/ingest_query.test.ts'"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
