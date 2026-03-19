@@ -1,4 +1,4 @@
-import { afterAll, describe, it, expect } from 'vitest';
+import { afterAll, describe, it, expect } from 'bun:test';
 import fetch from 'node-fetch'; // or undici
 import { createClient } from '@supabase/supabase-js';
 import neo4j from 'neo4j-driver';
@@ -41,5 +41,5 @@ describe('LexiGraph API', () => {
     expect(queryRes.status).toBe(200);
     const queryJson = await queryRes.json();
     expect(queryJson.answer).toEqual(expect.stringContaining('Alice'));
-  });
+  }, 20000);
 });

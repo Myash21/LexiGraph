@@ -3,31 +3,7 @@ import { neo4jDriver } from '../config/neo4j';
 import { getEmbedding } from '../config/embeddings';
 import { extractGraphEntities } from './extraction';
 import { llm } from '../config/llm';
-
-const normalizeText = (input: string) =>
-  input
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-const canonicalizeQueryNodeIds = (nodeIds: string[]) => {
-  const identified = new Set<string>();
-
-  for (const raw of nodeIds) {
-    const normalized = normalizeText(raw);
-    identified.add(normalized);
-
-    if (!/^([A-Z]+)_/.test(normalized)) {
-      identified.add(`PERSON_${normalized}`);
-      identified.add(`ORGANIZATION_${normalized}`);
-      identified.add(`CONCEPT_${normalized}`);
-      identified.add(`EVENT_${normalized}`);
-    }
-  }
-
-  return [...identified];
-};
+import { normalizeText, canonicalizeQueryNodeIds } from '../utils/normalize';
 
 /**
  * Perform a Hybrid Search (Vector + Graph) to answer user queries with high context.
