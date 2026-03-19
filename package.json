@@ -15,8 +15,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "test": "bun test",
-    "test:unit": "bunx vitest run --include '**/*.unit.test.ts'",
-    "test:integration": "bunx vitest run --include '**/ingest_query.test.ts'"
+    "test:unit": "bun test .unit.test.ts",
+    "test:integration": "bun test ingest_query.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
