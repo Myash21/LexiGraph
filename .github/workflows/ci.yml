@@ -46,9 +46,17 @@ jobs:
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USER: neo4j
           NEO4J_PASSWORD: password123
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'gsk_placeholder' }}
 
       - name: Run unit tests
         run: bun test
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          SUPABASE_PRIVATE_KEY: ${{ secrets.SUPABASE_PRIVATE_KEY || 'placeholder' }}
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: password123
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'gsk_placeholder' }}
 
       - name: Run smoke cycle
         run: npm run smoke:cycle
@@ -60,3 +68,4 @@ jobs:
           NEO4J_PASSWORD: password123
           BASE_URL: http://localhost:3000
           TEST_RUN: smoke-ci-${{ github.run_id }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'gsk_placeholder' }}
