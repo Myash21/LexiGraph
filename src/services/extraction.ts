@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { llm } from '../config/llm';
+import { normalizeText, canonicalizeNodeId } from '../utils/normalize';
 
 // 1. Define strict TypeScript interfaces using Zod
-// This ensures Gemini only returns data in this exact shape.
+// This ensures the LLM only returns data in this exact shape.
 export const NodeSchema = z.object({
     id: z.string().describe("A unique identifier for the entity, capitalized (e.g., 'COMPANY_OPENAI', 'PERSON_ELON_MUSK')."),
     type: z.string().describe("The categorization of the node (e.g., 'Person', 'Organization', 'Concept', 'Event')."),
@@ -23,31 +24,6 @@ export const GraphSchema = z.object({
 
 export type GraphData = z.infer<typeof GraphSchema>;
 
-// 2. Create the Extraction function using structured output
-const normalizeText = (input: string) =>
-  input
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-const canonicalizeNodeId = (id: string, type?: string) => {
-  if (!id) return id;
-
-  const normalized = normalizeText(id);
-  const hasCanonicalPrefix = /^([A-Z]+)_/.test(normalized);
-
-  if (hasCanonicalPrefix) {
-    return normalized;
-  }
-
-  if (type) {
-    const typeLabel = normalizeText(type);
-    return `${typeLabel}_${normalized}`;
-  }
-
-  return normalized;
-};
 
 export const extractGraphEntities = async (textChunk: string): Promise<GraphData> => {
     // Bind the Zod schema to our Gemini model
