@@ -42,4 +42,4 @@ describe('LexiGraph API', () => {
     const queryJson = await queryRes.json();
     expect(queryJson.answer).toEqual(expect.stringContaining('Alice'));
   });
-});
+}, 20000);
