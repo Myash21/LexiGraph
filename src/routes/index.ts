@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { ingestDocument } from '../services/ingestion';
 import { answerQuery } from '../services/retrieval';
-import { WebPDFLoader } from "@langchain/community/document_loaders/web/pdf";
+import { LoadPDf } from '../utils/pdfloader';
 
 export default async function apiRoutes(server: FastifyInstance) {
     // 1. Ingestion Endpoint
@@ -15,24 +15,7 @@ export default async function apiRoutes(server: FastifyInstance) {
             if (!data) return reply.status(400).send({ error: "No file provided" });
 
             try {
-                // 1. Get buffer and create a Blob for LangChain
-                const buffer = await data.toBuffer();
-                const blob = new Blob([buffer]);
-
-                // 2. Initialize LangChain PDFLoader
-                // splitPages: true is great if you want to ingest page by page
-                const loader = new WebPDFLoader(blob, { splitPages: false });
-                const docs = await loader.load();
-
-                // 3. Extract text (LangChain joins pages for you if splitPages is false)
-                text = docs.map(doc => doc.pageContent).join('\n');
-
-                // 4. Capture metadata from the PDF (page numbers, etc.)
-                metadata = {
-                    source: data.filename,
-                    ...docs[0].metadata
-                };
-
+                ({ text, metadata } = await LoadPDf(data));
             } catch (error: any) {
                 server.log.error(error);
                 return reply.status(500).send({ error: "LangChain failed to load PDF", details: error.message });
