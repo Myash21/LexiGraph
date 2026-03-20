@@ -68,14 +68,20 @@ export const answerQuery = async (query: string): Promise<string> => {
             // Fallback: try lenient partial string matching by raw extracted ids
             const fallbackSession = neo4jDriver.session();
             try {
+                const bareNames = nodeIds.map(id => {
+                    const normalized = normalizeText(id);
+                    const match = normalized.match(/^[A-Z]+_(.+)$/);
+                    return match ? match[1] : normalized;
+                });
+                //Fallback Cypher
                 const fallbackResult = await fallbackSession.run(`
-                    UNWIND $rawIds AS id
-                    MATCH (n:Entity)
-                    WHERE toLower(n.id) CONTAINS toLower(id)
-                    OPTIONAL MATCH (n)-[r]-(neighbor:Entity)
-                    RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
-                    LIMIT 30
-                `, { rawIds: nodeIds });
+                UNWIND $bareNames AS name
+                MATCH (n:Entity)
+                WHERE n.id ENDS WITH name OR n.id CONTAINS name
+                OPTIONAL MATCH (n)-[r]-(neighbor:Entity)
+                RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
+                LIMIT 30
+                `, { bareNames });
 
                 graphContextText = fallbackResult.records.map(rec =>
                     `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
