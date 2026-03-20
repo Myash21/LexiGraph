@@ -9,6 +9,7 @@ server.get('/health', async (request, reply) => {
     return { status: 'ok', service: 'LexiGraph API' };
 });
 
+import multipart from '@fastify/multipart';
 import cors from '@fastify/cors';
 import apiRoutes from './routes/index';
 import { verifyNeo4jConnection } from './config/neo4j';
@@ -16,6 +17,15 @@ import { getEmbedding } from './config/embeddings';
 
 const start = async () => {
     try {
+        await server.register(multipart, {
+            limits: {
+                fieldNameSize: 100,      // Max field name size in bytes
+                fieldSize: 1000000,      // Max field value size in bytes (1MB)
+                fileSize: 10 * 1024 * 1024, // Max file size in bytes (Set to 10MB)
+                files: 1                 // Max number of file fields
+            },
+            attachFieldsToBody: false    // Keep this false if you want to use request.parts()
+        });
         await server.register(cors);
         await server.register(apiRoutes);
 

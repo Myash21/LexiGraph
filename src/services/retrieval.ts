@@ -14,7 +14,7 @@ export const answerQuery = async (query: string): Promise<string> => {
     // --- 1. Vector Search (Semantic Context) ---
     console.log("Generating query embedding and querying vector DB...");
     const queryEmbedding = await getEmbedding(query);
-    
+
     // Calls a Supabase RPC function we define in SQL (match_documents)
     const { data: vectorResults, error: vectorError } = await supabase.rpc('match_documents', {
         query_embedding: queryEmbedding,
@@ -26,8 +26,8 @@ export const answerQuery = async (query: string): Promise<string> => {
         console.error("Vector Search Error:", vectorError);
     }
     const vectorContextText = (vectorResults || []).map((v: any) => v.content).join('\n---\n');
-    console.log(vectorResults.length);
-    console.log(vectorContextText);
+    console.log("vectorResults.length: ", vectorResults.length);
+    console.log("vectorContextText: ", vectorContextText);
 
     // --- 2. Graph Search (Relational Context) ---
     console.log("Extracting entities from query and traversing graph DB...");
@@ -53,11 +53,11 @@ export const answerQuery = async (query: string): Promise<string> => {
                 RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
                 LIMIT 30
             `, { nodeIds: canonicalNodeIds });
-            
-            graphContextText = result.records.map(rec => 
+
+            graphContextText = result.records.map(rec =>
                 `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
             ).join('\n');
-            
+
         } catch (err) {
             console.error("Graph Traversal Error:", err);
         } finally {
@@ -68,16 +68,22 @@ export const answerQuery = async (query: string): Promise<string> => {
             // Fallback: try lenient partial string matching by raw extracted ids
             const fallbackSession = neo4jDriver.session();
             try {
+                const bareNames = nodeIds.map(id => {
+                    const normalized = normalizeText(id);
+                    const match = normalized.match(/^[A-Z]+_(.+)$/);
+                    return match ? match[1] : normalized;
+                });
+                //Fallback Cypher
                 const fallbackResult = await fallbackSession.run(`
-                    UNWIND $rawIds AS id
-                    MATCH (n:Entity)
-                    WHERE toLower(n.id) CONTAINS toLower(id)
-                    OPTIONAL MATCH (n)-[r]-(neighbor:Entity)
-                    RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
-                    LIMIT 30
-                `, { rawIds: nodeIds });
+                UNWIND $bareNames AS name
+                MATCH (n:Entity)
+                WHERE n.id ENDS WITH name OR n.id CONTAINS name
+                OPTIONAL MATCH (n)-[r]-(neighbor:Entity)
+                RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
+                LIMIT 30
+                `, { bareNames });
 
-                graphContextText = fallbackResult.records.map(rec => 
+                graphContextText = fallbackResult.records.map(rec =>
                     `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
                 ).join('\n');
             } catch (err) {
@@ -91,7 +97,7 @@ export const answerQuery = async (query: string): Promise<string> => {
     console.log('graphContextText:', graphContextText || 'No relational context found.');
     // --- 3. Synthesize Final Answer with LLM ---
     console.log("Synthesizing final response...");
-    
+
     const finalPrompt = `
     You are LexiGraph, a highly intelligent Knowledge Assistant.
     Answer the user's question based strictly on the provided Contexts. 

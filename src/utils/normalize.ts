@@ -3,6 +3,27 @@
  * These have no side-effects and no external dependencies (no LLM, no DB).
  */
 
+const TYPE_ALIASES: Record<string, string> = {
+  COMPANY: 'ORGANIZATION',
+  CORP: 'ORGANIZATION',
+  FIRM: 'ORGANIZATION',
+  INSTITUTION: 'ORGANIZATION',
+  HUMAN: 'PERSON',
+  INDIVIDUAL: 'PERSON',
+  PLACE: 'LOCATION',
+  COUNTRY: 'LOCATION',
+  CITY: 'LOCATION',
+};
+
+const CANONICAL_TYPES = new Set([
+  'PERSON', 'ORGANIZATION', 'CONCEPT', 'EVENT', 'LOCATION', 'PRODUCT'
+]);
+
+export const normalizeType = (type: string): string => {
+  const upper = normalizeText(type);
+  return TYPE_ALIASES[upper] ?? (CANONICAL_TYPES.has(upper) ? upper : 'CONCEPT');
+};
+
 export const normalizeText = (input: string) =>
   input
     .trim()
@@ -28,18 +49,20 @@ export const canonicalizeNodeId = (id: string, type?: string) => {
   return normalized;
 };
 
-export const canonicalizeQueryNodeIds = (nodeIds: string[]) => {
+export const canonicalizeQueryNodeIds = (nodeIds: string[]): string[] => {
   const identified = new Set<string>();
 
   for (const raw of nodeIds) {
     const normalized = normalizeText(raw);
-    identified.add(normalized);
+    identified.add(normalized); // add as-is first
 
-    if (!/^([A-Z]+)_/.test(normalized)) {
-      identified.add(`PERSON_${normalized}`);
-      identified.add(`ORGANIZATION_${normalized}`);
-      identified.add(`CONCEPT_${normalized}`);
-      identified.add(`EVENT_${normalized}`);
+    // Strip known type prefix to get the bare entity name
+    const prefixMatch = normalized.match(/^([A-Z]+)_(.+)$/);
+    const bareName = prefixMatch ? prefixMatch[2] : normalized;
+
+    // Expand with all canonical type prefixes
+    for (const type of CANONICAL_TYPES) {
+      identified.add(`${type}_${bareName}`);
     }
   }
 
