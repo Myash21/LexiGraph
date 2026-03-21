@@ -1,0 +1,26 @@
+//PDF Ingestion
+curl -X POST http://localhost:3000/ingest \
+  -F "file=@C:\Users\Admin\Downloads\your_document.pdf"
+
+//Plain Text(TXT) Ingestion
+curl -X POST http://localhost:3000/ingest \
+  -F "file=@C:\Users\Admin\Desktop\notes.txt"
+
+//Word Document(DOCX) Ingestion
+curl -X POST http://localhost:3000/ingest \
+  -F "file=@C:\Users\Admin\Documents\report.docx"
+
+
+//URL Ingestion(JSON)
+curl -X POST http://localhost:3000/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://en.wikipedia.org/wiki/Large_language_model"}'
+
+
+//Raw Text Ingestion(JSON)
+curl -X POST http://localhost:3000/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "LexiGraph is a hybrid RAG system using Vector and Graph databases.",
+    "metadata": { "author": "admin", "priority": "high" }
+  }'
