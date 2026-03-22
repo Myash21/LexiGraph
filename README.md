@@ -79,7 +79,19 @@ src/
 
 ### Prerequisites
 - [Bun](https://bun.sh/docs/installation) installed on your machine.
-- Access to a Neo4j instance and a Supabase project.
+- [Docker & Docker Compose](https://docs.docker.com/get-docker/) for running Neo4j.
+- A Supabase project (Vector DB).
+
+### Docker Setup (Neo4j)
+LexiGraph requires **Neo4j** with the **APOC plugin** enabled. You can spin this up easily using the provided Docker Compose file:
+
+1. Start the Neo4j container:
+   ```bash
+   docker-compose up -d
+   ```
+2. The database will be available at:
+   - **Bolt:** `bolt://localhost:7687` (used by the API)
+   - **Browser UI:** `http://localhost:7474` (User: `neo4j`, Password: `password123`)
 
 ### Installation
 1. Clone the repository:

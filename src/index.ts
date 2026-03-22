@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { loggerStorage } from './utils/logger';
+import rateLimit from '@fastify/rate-limit';
 
 const server = Fastify({
     logger: true, // Enables fastify's built-in Pino logger
@@ -35,6 +36,10 @@ const start = async () => {
             attachFieldsToBody: false    // Keep this false if you want to use request.parts()
         });
         await server.register(cors);
+        await server.register(rateLimit, {
+            max: 10,
+            timeWindow: '1 minute'
+        });
         await server.register(apiRoutes);
 
         console.log('Verifying Database connections...');
