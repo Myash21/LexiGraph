@@ -1,7 +1,10 @@
 import Fastify from 'fastify';
+import { randomUUID } from 'node:crypto';
+import { loggerStorage } from './utils/logger';
 
 const server = Fastify({
     logger: true, // Enables fastify's built-in Pino logger
+    genReqId: () => randomUUID(),
 });
 
 // A simple health-check route
@@ -17,6 +20,11 @@ import { getEmbedding } from './config/embeddings';
 
 const start = async () => {
     try {
+        server.addHook('onRequest', (request, reply, done) => {
+            loggerStorage.run(request.id, () => {
+                done();
+            });
+        });
         await server.register(multipart, {
             limits: {
                 fieldNameSize: 100,      // Max field name size in bytes
