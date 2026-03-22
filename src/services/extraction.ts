@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { llm } from '../config/llm';
 import { canonicalizeNodeId, normalizeType } from '../utils/normalize';
+import { logger } from '../utils/logger';
 
 // 1. Define strict TypeScript interfaces using Zod
 // This ensures the LLM only returns data in this exact shape.
@@ -49,7 +50,7 @@ export const extractGraphEntities = async (textChunk: string): Promise<GraphData
     """
     `;
 
-  console.log("Analyzing chunk with LLM...");
+  logger.log("Analyzing chunk with LLM...");
   const result = await structuredLlm.invoke(prompt);
 
   const nodes = (result.nodes || []).map((node: any) => ({
@@ -75,6 +76,6 @@ export const extractGraphEntities = async (textChunk: string): Promise<GraphData
     edges,
   };
 
-  console.log('extractGraphEntities ->', JSON.stringify(normalizedResult, null, 2));
+  logger.log('extractGraphEntities ->', JSON.stringify(normalizedResult, null, 2));
   return normalizedResult;
 };

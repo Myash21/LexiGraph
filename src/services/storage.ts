@@ -1,6 +1,7 @@
 import { neo4jDriver } from '../config/neo4j';
 import { supabase } from '../config/supabase';
 import type { GraphData } from './extraction';
+import { logger } from '../utils/logger';
 
 export const saveToVectorDB = async (content: string, embedding: number[], metadata: any = {}) => {
     const { error } = await supabase.from('documents').insert({
@@ -10,7 +11,7 @@ export const saveToVectorDB = async (content: string, embedding: number[], metad
     });
 
     if (error) {
-        console.error('Vector DB Insert Error:', error);
+        logger.error('Vector DB Insert Error:', error);
         throw new Error('Failed to save to Supabase');
     }
 };
@@ -42,9 +43,9 @@ export const saveToGraphDB = async (graphData: GraphData, metadata: any = {}) =>
                 `, { edges: graphData.edges });
             }
         });
-        console.log(`Saved ${graphData.nodes.length} nodes and ${graphData.edges.length} edges to Neo4j.`);
+        logger.log(`Saved ${graphData.nodes.length} nodes and ${graphData.edges.length} edges to Neo4j.`);
     } catch (error) {
-        console.error('Graph DB Insert Error:', error);
+        logger.error('Graph DB Insert Error:', error);
         throw new Error('Failed to save to Neo4j');
     } finally {
         await session.close();

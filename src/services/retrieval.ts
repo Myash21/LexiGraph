@@ -4,15 +4,16 @@ import { getEmbedding } from '../config/embeddings';
 import { extractGraphEntities } from './extraction';
 import { llm } from '../config/llm';
 import { normalizeText, canonicalizeQueryNodeIds } from '../utils/normalize';
+import { logger } from '../utils/logger';
 
 /**
  * Perform a Hybrid Search (Vector + Graph) to answer user queries with high context.
  */
 export const answerQuery = async (query: string): Promise<string> => {
-    console.log(`Processing Query: "${query}"`);
+    logger.log(`Processing Query: "${query}"`);
 
     // --- 1. Vector Search (Semantic Context) ---
-    console.log("Generating query embedding and querying vector DB...");
+    logger.log("Generating query embedding and querying vector DB...");
     const queryEmbedding = await getEmbedding(query);
 
     // Calls a Supabase RPC function we define in SQL (match_documents)
@@ -23,24 +24,24 @@ export const answerQuery = async (query: string): Promise<string> => {
     });
 
     if (vectorError) {
-        console.error("Vector Search Error:", vectorError);
+        logger.error("Vector Search Error:", vectorError);
     }
     const vectorContextText = (vectorResults || []).map((v: any) => v.content).join('\n---\n');
-    console.log("vectorResults.length: ", vectorResults.length);
-    console.log("vectorContextText: ", vectorContextText);
+    logger.log("vectorResults.length: ", vectorResults.length);
+    logger.log("vectorContextText: ", vectorContextText);
 
     // --- 2. Graph Search (Relational Context) ---
-    console.log("Extracting entities from query and traversing graph DB...");
+    logger.log("Extracting entities from query and traversing graph DB...");
     // We use the same extraction LLM to figure out what entities the user is asking about
     const queryEntities = await extractGraphEntities(query);
-    console.log("queryEntities: ", JSON.stringify(queryEntities))
+    logger.log("queryEntities: ", JSON.stringify(queryEntities))
     const nodeIds = queryEntities.nodes.map(n => n.id);
-    console.log("nodeIds: ", nodeIds)
+    logger.log("nodeIds: ", nodeIds)
 
     let graphContextText = "";
     if (nodeIds.length > 0) {
         const canonicalNodeIds = canonicalizeQueryNodeIds(nodeIds);
-        console.log('canonicalNodeIds:', canonicalNodeIds);
+        logger.log('canonicalNodeIds:', canonicalNodeIds);
 
         const session = neo4jDriver.session();
         try {
@@ -59,7 +60,7 @@ export const answerQuery = async (query: string): Promise<string> => {
             ).join('\n');
 
         } catch (err) {
-            console.error("Graph Traversal Error:", err);
+            logger.error("Graph Traversal Error:", err);
         } finally {
             await session.close();
         }
@@ -87,16 +88,16 @@ export const answerQuery = async (query: string): Promise<string> => {
                     `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
                 ).join('\n');
             } catch (err) {
-                console.error('Graph Fallback Traversal Error:', err);
+                logger.error('Graph Fallback Traversal Error:', err);
             } finally {
                 await fallbackSession.close();
             }
         }
     }
 
-    console.log('graphContextText:', graphContextText || 'No relational context found.');
+    logger.log('graphContextText:', graphContextText || 'No relational context found.');
     // --- 3. Synthesize Final Answer with LLM ---
-    console.log("Synthesizing final response...");
+    logger.log("Synthesizing final response...");
 
     const finalPrompt = `
     You are LexiGraph, a highly intelligent Knowledge Assistant.
@@ -116,6 +117,7 @@ export const answerQuery = async (query: string): Promise<string> => {
     `;
 
     const response = await llm.invoke(finalPrompt);
-    console.log(response.content)
-    return response.content as string;
+    const content: string = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+    logger.log(content);
+    return content;
 };

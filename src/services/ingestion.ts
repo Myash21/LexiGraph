@@ -2,13 +2,14 @@ import { chunkText } from '../utils/chunker';
 import { getEmbedding } from '../config/embeddings';
 import { extractGraphEntities } from './extraction';
 import { saveToVectorDB, saveToGraphDB } from './storage';
+import { logger } from '../utils/logger';
 
 export const ingestDocument = async (text: string, sourceMetadata: any = {}) => {
-    console.log(`Starting ingestion. Total document length: ${text.length} characters.`);
+    logger.log(`Starting ingestion. Total document length: ${text.length} characters.`);
 
     // 1. Chunk the text
     const chunks = await chunkText(text);
-    console.log(`Split document into ${chunks.length} chunks.`);
+    logger.log(`Split document into ${chunks.length} chunks.`);
 
     // 2. Process each chunk
     // Note: We process them sequentially here to avoid hitting LLM or Vector DB rate limits.
@@ -16,7 +17,7 @@ export const ingestDocument = async (text: string, sourceMetadata: any = {}) => 
     let count = 0;
     for (const chunk of chunks) {
         count++;
-        console.log(`Processing chunk ${count}/${chunks.length}...`);
+        logger.log(`Processing chunk ${count}/${chunks.length}...`);
 
         try {
             // A. Get Embeddings
@@ -33,11 +34,11 @@ export const ingestDocument = async (text: string, sourceMetadata: any = {}) => 
             await saveToGraphDB(graphData, sourceMetadata);
 
         } catch (error) {
-            console.error(`Error processing chunk ${count}:`, error);
+            logger.error(`Error processing chunk ${count}:`, error);
             // Decide whether to fail the whole document or continue
         }
     }
 
-    console.log("Ingestion completed successfully.");
+    logger.log("Ingestion completed successfully.");
     return { success: true, chunksProcessed: chunks.length };
 };
