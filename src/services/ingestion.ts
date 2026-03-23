@@ -4,7 +4,7 @@ import { extractGraphEntities } from './extraction';
 import { saveToVectorDB, saveToGraphDB } from './storage';
 import { logger } from '../utils/logger';
 
-export const ingestDocument = async (text: string, sourceMetadata: any = {}) => {
+export const ingestDocument = async (text: string, sourceMetadata: any = {}, userId: string) => {
     logger.log(`Starting ingestion. Total document length: ${text.length} characters.`);
 
     // 1. Chunk the text
@@ -25,13 +25,13 @@ export const ingestDocument = async (text: string, sourceMetadata: any = {}) => 
 
             // B. Write to Vector DB (Supabase)
             // We store the chunk text itself alongside its embedding so we can retrieve it later
-            await saveToVectorDB(chunk, embedding, sourceMetadata);
+            await saveToVectorDB(chunk, embedding, sourceMetadata, userId);
 
             // C. Extract Graph Entities using LLM
             const graphData = await extractGraphEntities(chunk);
 
             // D. Write Nodes and Edges to Graph DB (Neo4j)
-            await saveToGraphDB(graphData, sourceMetadata);
+            await saveToGraphDB(graphData, sourceMetadata, userId);
 
         } catch (error) {
             logger.error(`Error processing chunk ${count}:`, error);
