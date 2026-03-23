@@ -8,11 +8,6 @@ const server = Fastify({
     genReqId: () => randomUUID(),
 });
 
-// A simple health-check route
-server.get('/health', async (request, reply) => {
-    return { status: 'ok', service: 'LexiGraph API' };
-});
-
 import multipart from '@fastify/multipart';
 import cors from '@fastify/cors';
 import apiRoutes from './routes/index';

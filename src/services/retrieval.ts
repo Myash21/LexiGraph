@@ -9,8 +9,8 @@ import { logger } from '../utils/logger';
 /**
  * Perform a Hybrid Search (Vector + Graph) to answer user queries with high context.
  */
-export const answerQuery = async (query: string): Promise<string> => {
-    logger.log(`Processing Query: "${query}"`);
+export const answerQuery = async (query: string, userId: string): Promise<string> => {
+    logger.log(`Processing Query: "${query} for user ${userId}"`);
 
     // --- 1. Vector Search (Semantic Context) ---
     logger.log("Generating query embedding and querying vector DB...");
@@ -20,7 +20,8 @@ export const answerQuery = async (query: string): Promise<string> => {
     const { data: vectorResults, error: vectorError } = await supabase.rpc('match_documents', {
         query_embedding: queryEmbedding,
         match_threshold: 0.5, // Only get somewhat relevant chunks
-        match_count: 3        // Top K chunks
+        match_count: 3,        // Top K chunks
+        p_user_id: userId
     });
 
     if (vectorError) {
@@ -48,12 +49,12 @@ export const answerQuery = async (query: string): Promise<string> => {
             // Find 1-hop neighborhood for all candidate node IDs (strict canonical match)
             const result = await session.run(`
                 UNWIND $nodeIds AS id
-                MATCH (n:Entity)
+                MATCH (n:Entity {userId: $userId})
                 WHERE n.id IN $nodeIds
-                OPTIONAL MATCH (n)-[r]-(neighbor:Entity)
+                OPTIONAL MATCH (n)-[r]-(neighbor:Entity {userId: $userId})
                 RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
                 LIMIT 30
-            `, { nodeIds: canonicalNodeIds });
+            `, { nodeIds: canonicalNodeIds, userId });
 
             graphContextText = result.records.map(rec =>
                 `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
@@ -77,12 +78,15 @@ export const answerQuery = async (query: string): Promise<string> => {
                 //Fallback Cypher
                 const fallbackResult = await fallbackSession.run(`
                 UNWIND $bareNames AS name
-                MATCH (n:Entity)
+                MATCH (n:Entity {userId: $userId})
                 WHERE n.id ENDS WITH name OR n.id CONTAINS name
-                OPTIONAL MATCH (n)-[r]-(neighbor:Entity)
+                OPTIONAL MATCH (n)-[r]-(neighbor:Entity {userId: $userId})
                 RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
                 LIMIT 30
-                `, { bareNames });
+                `, {
+                    bareNames: nodeIds,
+                    userId: userId
+                });
 
                 graphContextText = fallbackResult.records.map(rec =>
                     `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
