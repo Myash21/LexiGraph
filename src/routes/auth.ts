@@ -1,7 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { request } from "node:http";
-import { access } from "node:fs";
 
 const supabase = createClient(
     process.env.SUPABASE_URL!,
