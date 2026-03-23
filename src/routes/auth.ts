@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export default async function authRoutes(server: FastifyInstance) {
     //Register
-    server.post('auth/register', async (request, reply) => {
+    server.post('/auth/register', async (request, reply) => {
         const { email, password } = request.body as {
             email: string,
             password: string
@@ -20,7 +20,7 @@ export default async function authRoutes(server: FastifyInstance) {
     })
 
     //Login
-    server.post('auth/login', async (request, reply) => {
+    server.post('/auth/login', async (request, reply) => {
         const { email, password } = request.body as {
             email: string,
             password: string
@@ -36,7 +36,7 @@ export default async function authRoutes(server: FastifyInstance) {
     });
 
     //Refresh Token
-    server.post('auth/refresh', async (request, reply) => {
+    server.post('/auth/refresh', async (request, reply) => {
         const { refresh_token } = request.body as { refresh_token: string };
 
         const { data, error } = await supabase.auth.refreshSession({ refresh_token });
