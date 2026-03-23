@@ -2,8 +2,20 @@ import type { FastifyInstance } from 'fastify';
 import { ingestDocument } from '../services/ingestion';
 import { answerQuery } from '../services/retrieval';
 import { loadWebPage, loadFile } from '../utils/loaders';
+import authRoutes from './auth';
+import { authMiddleware } from '../middleware/auth';
 
 export default async function apiRoutes(server: FastifyInstance) {
+    // A simple health-check route-No auth needed
+    server.get('/health', async (request, reply) => {
+        return { status: 'ok', service: 'LexiGraph API' };
+    });
+
+    await server.register(authRoutes);
+
+    // Everything below this hook requires a valid token
+    server.addHook('preHandler', authMiddleware);
+
     // 1. Ingestion Endpoint
     server.post('/ingest', async (request, reply) => {
         let text = '';
