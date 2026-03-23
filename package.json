@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.7.0",
@@ -33,7 +34,7 @@
     "@langchain/openai": "^1.2.13",
     "@langchain/textsplitters": "^1.0.1",
     "@pinecone-database/pinecone": "^7.1.0",
-    "@supabase/supabase-js": "^2.99.1",
+    "@supabase/supabase-js": "^2.99.3",
     "cheerio": "^1.2.0",
     "fastify": "^5.8.2",
     "mammoth": "^1.12.0",
