@@ -31,7 +31,8 @@ When a query is received, LexiGraph performs a **Hybrid Search**—traversing th
 - **Automated Graph Construction:** Uses LLMs to automatically identify entities and relationships from ingested text.
 - **Hybrid Search Algorithm:** Combines semantic similarity with graph-based neighbor traversal.
 - **Fastify-Powered:** Built on Bun and Fastify for sub-millisecond routing and type-safe development.
-- **Observability:** Traceable requests with unique IDs (compatible with LangSmith/Helicone).
+- **Rate Limiting:** Built-in protection against API abuse using `@fastify/rate-limit`.
+- **Observability:** Traceable requests with unique IDs and automatic **Request Duration Logging** for performance monitoring.
 
 ---
 
@@ -132,6 +133,11 @@ LexiGraph requires **Neo4j** with the **APOC plugin** enabled. You can spin this
 `POST /query`
 - **Body:** `{ "query": "What is the relationship between X and Y?" }`
 - **Response:** `{ "answer": "Detailed LLM response based on graph and vector data." }`
+
+### 4. Errors
+- **429 Too Many Requests:** Returned when the rate limit is exceeded (Default: 10 requests per minute).
+- **400 Bad Request:** Returned for missing or malformed inputs.
+- **500 Internal Server Error:** Returned for database or LLM failures.
 
 ---
 
