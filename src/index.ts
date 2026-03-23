@@ -22,9 +22,17 @@ import { getEmbedding } from './config/embeddings';
 const start = async () => {
     try {
         server.addHook('onRequest', (request, reply, done) => {
+            (request as any).startTime = performance.now();
             loggerStorage.run(request.id, () => {
                 done();
             });
+        });
+
+        server.addHook('onResponse', (request, reply, done) => {
+            const start = (request as any).startTime;
+            const duration = (performance.now() - start).toFixed(2);
+            console.log(`[${request.id}] ${request.method} ${request.url} completed in ${duration}ms`);
+            done();
         });
         await server.register(multipart, {
             limits: {
