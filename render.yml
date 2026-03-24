@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: lexigraph-api
+    runtime: node
+    buildCommand: bun install
+    startCommand: bun run start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NEO4J_URI
+        sync: false        # means you'll set it manually in dashboard
+      - key: NEO4J_USER
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PRIVATE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

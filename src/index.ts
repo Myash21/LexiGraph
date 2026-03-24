@@ -52,7 +52,10 @@ const start = async () => {
         console.log('Preloading embedding model...');
         await getEmbedding("Test preloading...");
 
-        await server.listen({ port: 3000, host: '0.0.0.0' });
+        await server.listen({
+            port: Number(process.env.PORT) || 3000,
+            host: '0.0.0.0'    // required for Render
+        });
         console.log('Server is running on http://localhost:3000');
     } catch (err) {
         server.log.error(err);
