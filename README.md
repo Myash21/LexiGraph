@@ -3,7 +3,6 @@
 A Hybrid GraphRAG backend that combines vector semantic search with knowledge graph traversal for grounded AI responses.
 
 [Live Demo](url)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
@@ -267,4 +266,4 @@ bun run test               # All tests
 ---
 
 ## License
-MIT
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
