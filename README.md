@@ -138,7 +138,7 @@ src/
 
 ### Prerequisites
 - [Bun](https://bun.sh) installed
-- [Docker](https://docker.com) for Neo4j
+- A Cloud [Neo4j Aura DB](https://neo4j.com/cloud/platform/aura-graph-database/) instance
 - A [Supabase](https://supabase.com) project
 
 ### 1. Clone and install
@@ -154,18 +154,12 @@ cp .env.example .env
 # Fill in your values
 ```
 
-### 3. Start Neo4j
-```bash
-docker-compose up -d
-# Neo4j browser available at http://localhost:7474
-```
-
-### 4. Apply database migrations
+### 3. Apply database migrations
 Run files in `src/db/migrations/` in order via Supabase SQL editor:
 - `001_initial_schema.sql`
 - `002_add_user_isolation.sql`
 
-### 5. Start the server
+### 4. Start the server
 ```bash
 bun run dev
 ```
@@ -226,10 +220,10 @@ curl -X POST http://localhost:3000/query \
 ```env
 PORT=3000
 
-# Neo4j
-NEO4J_URI=bolt://localhost:7687
+# Neo4j (Aura DB)
+NEO4J_URI=neo4j+s://<your-aura-db-id>.databases.neo4j.io
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=your_secure_password
+NEO4J_PASSWORD=your_aura_password
 
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
