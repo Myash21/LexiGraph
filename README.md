@@ -181,6 +181,7 @@ bun run dev
 | GET | `/health` | Health check | No |
 | POST | `/ingest` | Ingest document/URL/text | Yes |
 | POST | `/query` | Hybrid search + LLM answer | Yes |
+| GET | `/graph` | Get user graph | Yes |
 
 ### Request Examples
 
