@@ -9,7 +9,17 @@ import { logger } from '../utils/logger';
 /**
  * Perform a Hybrid Search (Vector + Graph) to answer user queries with high context.
  */
-export const answerQuery = async (query: string, userId: string): Promise<string> => {
+export const answerQuery = async (query: string, userId: string): Promise<{         // ← was Promise<string>
+    answer: string;
+    sources: {
+        vector: Array<{
+            content: string;
+            metadata: Record<string, any>;
+            similarity: number;
+        }>;
+        graph: string[];
+    };
+}> => {
     logger.log(`Processing Query: "${query} for user ${userId}"`);
 
     // --- 1. Vector Search (Semantic Context) ---
@@ -121,7 +131,22 @@ export const answerQuery = async (query: string, userId: string): Promise<string
     `;
 
     const response = await llm.invoke(finalPrompt);
-    const content: string = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
-    logger.log(content);
-    return content;
+    const answer: string = typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content);
+    logger.log(answer);
+
+    return {
+        answer,
+        sources: {
+            vector: (vectorResults || []).map((v: any) => ({
+                content: v.content,
+                metadata: v.metadata || {},
+                similarity: v.similarity,
+            })),
+            graph: graphContextText
+                ? graphContextText.split('\n').filter(Boolean).slice(0, 5)
+                : [],
+        },
+    };
 };

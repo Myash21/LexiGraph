@@ -12,7 +12,7 @@ export default async function queryRoutes(server: FastifyInstance) {
 
         try {
             const result = await answerQuery(query, userId);
-            return reply.send({ answer: result });
+            return reply.send(result);
         } catch (error: any) {
             server.log.error(error);
             return reply.status(500).send({ error: "Retrieval failed.", details: error.message });
