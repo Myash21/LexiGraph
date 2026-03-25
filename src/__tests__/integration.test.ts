@@ -104,7 +104,11 @@ describe('LexiGraph API', () => {
     });
     expect(queryRes.status).toBe(200);
     const queryJson = await queryRes.json();
-    expect(queryJson.answer).toBeTruthy();
+    expect(queryJson).toHaveProperty('answer');
+    expect(typeof queryJson.answer).toBe('string');
+    expect(queryJson).toHaveProperty('sources');
+    expect(queryJson.sources).toHaveProperty('vector');
+    expect(queryJson.sources).toHaveProperty('graph');
   }, 30000);
 
   it('should not return context across users', async () => {
@@ -134,9 +138,13 @@ describe('LexiGraph API', () => {
     expect(queryRes.status).toBe(200);
     const queryJson = await queryRes.json();
 
-    // Answer should NOT confidently mention Alice
-    // (LLM may still hallucinate, but the context won't contain it)
-    expect(queryJson.answer).not.toMatch(/based on the (provided |given )?context/i);
+    // Assert response shape
+    expect(queryJson).toHaveProperty('answer');
+    expect(queryJson).toHaveProperty('sources');
+
+    // Assert isolation — user2 should have empty sources
+    expect(queryJson.sources.vector).toHaveLength(0);
+    expect(queryJson.sources.graph).toHaveLength(0);
 
     // Cleanup user2
     const adminSupabase = createClient(
