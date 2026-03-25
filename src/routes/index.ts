@@ -3,6 +3,7 @@ import authRoutes from './auth';
 import { authMiddleware } from '../middleware/auth';
 import ingestRoutes from './ingest';
 import queryRoutes from './query';
+import graphRoutes from './graph';
 
 export default async function apiRoutes(server: FastifyInstance) {
     // A simple health-check route-No auth needed
@@ -22,5 +23,8 @@ export default async function apiRoutes(server: FastifyInstance) {
 
         // 2. Query Endpoint (Hybrid Search)
         protectedContext.register(queryRoutes);
+
+        // 3. Graph Endpoint
+        protectedContext.register(graphRoutes);
     });
 }
