@@ -38,10 +38,17 @@ const start = async () => {
             },
             attachFieldsToBody: false    // Keep this false if you want to use request.parts()
         });
-        await server.register(cors);
+        await server.register(cors, {
+            origin: true,
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization'],
+            credentials: true,
+        });
         await server.register(rateLimit, {
             max: 10,
-            timeWindow: '1 minute'
+            timeWindow: '1 minute',
+            // Never rate-limit CORS preflight requests
+            allowList: (request: import('fastify').FastifyRequest) => request.method === 'OPTIONS',
         });
         await server.register(apiRoutes);
 

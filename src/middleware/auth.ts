@@ -10,6 +10,11 @@ export async function authMiddleware(
     request: FastifyRequest,
     reply: FastifyReply
 ) {
+    // Skip auth for CORS preflight requests
+    if (request.method === 'OPTIONS') {
+        return;
+    }
+
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
