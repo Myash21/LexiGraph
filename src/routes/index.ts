@@ -4,6 +4,8 @@ import { authMiddleware } from '../middleware/auth';
 import ingestRoutes from './ingest';
 import queryRoutes from './query';
 import graphRoutes from './graph';
+import docsRoutes from './docs';
+import deleteRoutes from './delete';
 
 export default async function apiRoutes(server: FastifyInstance) {
     // A simple health-check route-No auth needed
@@ -26,5 +28,11 @@ export default async function apiRoutes(server: FastifyInstance) {
 
         // 3. Graph Endpoint
         protectedContext.register(graphRoutes);
+
+        // 4. Documents Endpoint
+        protectedContext.register(docsRoutes);
+
+        // 5. Delete Endpoint
+        protectedContext.register(deleteRoutes);
     });
 }
