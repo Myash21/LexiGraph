@@ -2,7 +2,7 @@
 
 A Hybrid GraphRAG backend that combines vector semantic search with knowledge graph traversal for grounded AI responses.
 
-[Live Demo](https://lexigraph-frontend.vercel.app)
+[Live Link](https://lexigraph-frontend.vercel.app)
 Hang tight! The dashboard may take a few seconds to ***render***
 
 ---
