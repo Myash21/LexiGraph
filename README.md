@@ -2,7 +2,8 @@
 
 A Hybrid GraphRAG backend that combines vector semantic search with knowledge graph traversal for grounded AI responses.
 
-[Live Demo](url)
+[Live Demo](https://lexigraph-frontend.vercel.app)
+Hang tight! The dashboard may take a few seconds to ***render***
 
 ---
 
@@ -17,13 +18,14 @@ A Hybrid GraphRAG backend that combines vector semantic search with knowledge gr
 - [Environment Variables](#environment-variables)
 - [Testing](#testing)
 - [Known Limitations](#known-limitations)
+- [Deployment](#deployment)
 - [License](#license)
 
 ---
 
 ## What Problem Does This Solve?
 
-Traditional RAG systems retrieve text by semantic similarity alone, missing explicit relationships between entities. LexiGraph maintains a dual-index — vector embeddings for semantic meaning and a knowledge graph for structured relationships — delivering more accurate, relationship-aware answers.
+Traditional RAG systems retrieve text by semantic similarity alone, missing explicit relationships between entities. LexiGraph maintains a dual-index vector embeddings for semantic meaning and a knowledge graph for structured relationships delivering more accurate, relationship-aware answers.
 
 ---
 
@@ -116,7 +118,7 @@ src/
 | LLMs | Google Gemini, Groq (Llama-3) |
 | Embeddings | HuggingFace / Gemini |
 | File Parsing | PDF.js, Mammoth, Cheerio |
-| Testing | Vitest |
+| Testing | Bun Test |
 | CI/CD | GitHub Actions |
 
 ---
@@ -182,6 +184,8 @@ bun run dev
 | POST | `/ingest` | Ingest document/URL/text | Yes |
 | POST | `/query` | Hybrid search + LLM answer | Yes |
 | GET | `/graph` | Get user graph | Yes |
+| GET | `/documents` | Get user documents | Yes |
+| DELETE | `/documents` | Delete a document and its relationships | Yes |
 
 ### Request Examples
 
@@ -257,6 +261,12 @@ bun run test               # All tests
 - Graph nodes are fully isolated per user — cross-user knowledge sharing is not supported by design.
 - `match_threshold` of 0.5 is a fixed default — adaptive thresholding based on query type would improve retrieval quality.
 - No persistent chat history — each query is stateless.
+
+## Deployment
+
+- The backend is deployed on Render while the frontend is deployed on Vercel.
+- The backend may take a few seconds to load on the first request due to the free tier.
+- You can access the frontend repository [here](https://github.com/Myash21/Lexigraph-frontend)
 
 ---
 
