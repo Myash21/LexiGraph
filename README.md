@@ -27,7 +27,13 @@ Hang tight! The dashboard may take a few seconds to ***render***
 
 Traditional RAG systems retrieve text by semantic similarity alone, missing explicit relationships between entities. LexiGraph maintains a dual-index vector embeddings for semantic meaning and a knowledge graph for structured relationships delivering more accurate, relationship-aware answers.
 
+![WhatsApp Image 2026-03-27 at 7 14 42 PM](https://github.com/user-attachments/assets/51ea7630-f754-41e5-bd30-d6ec1894b96a)
+
 <img width="1169" height="874" alt="image" src="https://github.com/user-attachments/assets/2599a3ac-815d-4e4b-9470-8dee381782fb" />
+
+![WhatsApp Image 2026-03-27 at 7 16 26 PM](https://github.com/user-attachments/assets/841ef9ac-2ca2-4eb1-9a41-9b5ccdb2cc83)
+
+![WhatsApp Image 2026-03-27 at 7 16 47 PM](https://github.com/user-attachments/assets/ae78dc37-9818-479e-8dbd-c55cb811c908)
 
 ---
 
