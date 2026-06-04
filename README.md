@@ -5,6 +5,8 @@ A Hybrid GraphRAG backend that combines vector semantic search with knowledge gr
 [Live Link](https://lexigraph-frontend.vercel.app)
 Hang tight! The dashboard may take a few seconds to ***render***
 
+login email: testuser123@gmail.com
+login password: 12345678
 ---
 
 ## Table of Contents
