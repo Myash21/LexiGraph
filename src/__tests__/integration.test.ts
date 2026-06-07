@@ -1,73 +1,104 @@
-import { beforeAll, afterAll, describe, it, expect } from 'bun:test';
-import fetch from 'node-fetch'; // or undici
-import { createClient } from '@supabase/supabase-js';
+import { afterAll, describe, it, expect } from 'bun:test';
+import fetch from 'node-fetch';
 import neo4j from 'neo4j-driver';
+import { pool } from '../config/azure-db';
 import 'dotenv/config';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000';
-const TEST_RUN = process.env.TEST_RUN || `vitest-${Date.now()}`;
-const TEST_EMAIL = `testuser_${Date.now()}@lexigraph.test`;
-const TEST_PASSWORD = 'TestPassword123!';
+const TEST_RUN = `test-${Date.now()}`;
 
-const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_PRIVATE_KEY || '');
-const driver = neo4j.driver(
+// ── Test users — created fresh each run, cleaned up after ────────────────────
+const USER_A = { email: `test-a-${Date.now()}@lexigraph.test`, password: 'TestPassword123', name: 'Test User A' };
+const USER_B = { email: `test-b-${Date.now()}@lexigraph.test`, password: 'TestPassword123', name: 'Test User B' };
+
+let tokenA = '';
+let tokenB = '';
+let userAId = '';
+
+const neo4jDriver = neo4j.driver(
   process.env.NEO4J_URI || 'bolt://localhost:7687',
-  neo4j.auth.basic(process.env.NEO4J_USER || 'neo4j', process.env.NEO4J_PASSWORD || 'password123')
+  neo4j.auth.basic(
+    process.env.NEO4J_USER || 'neo4j',
+    process.env.NEO4J_PASSWORD || 'password123'
+  )
 );
 
-let accessToken: string;
-let userId: string;
-
-// ── Setup: create a real test user and login ─────────────────────────────────
-beforeAll(async () => {
-  const registerRes = await fetch(`${BASE}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
-  });
-  expect(registerRes.status).toBe(200);
-
-  const loginRes = await fetch(`${BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
-  });
-  expect(loginRes.status).toBe(200);
-  const loginJson = await loginRes.json();
-
-  accessToken = loginJson.access_token;
-  userId = loginJson.user.id;
-});
-
-// ── Cleanup: delete everything tied to this test user ────────────────────────
+// ── Cleanup: delete all test data after the suite ─────────────────────────────
 afterAll(async () => {
-  // Delete vector rows by testRun metadata AND userId (both scoped now)
-  await supabase
-    .from('documents')
-    .delete()
-    .eq('metadata->>testRun', TEST_RUN)
-    .eq('user_id', userId);
+  // Delete test vector chunks from Azure PostgreSQL
+  await pool.query(
+    `DELETE FROM documents
+         WHERE metadata->>'testRun' = $1`,
+    [TEST_RUN]
+  );
 
-  // Delete graph nodes scoped to this user
-  const session = driver.session();
+  // Delete test users from Azure PostgreSQL
+  await pool.query(
+    `DELETE FROM users WHERE email = $1 OR email = $2`,
+    [USER_A.email, USER_B.email]
+  );
+
+  // Delete test graph nodes from Neo4j
+  const session = neo4jDriver.session();
   await session.run(
-    'MATCH (n:Entity {userId: $userId, source: $testRun}) DETACH DELETE n',
-    { userId, testRun: TEST_RUN }
+    `MATCH (n:Entity {userId: $userId}) DETACH DELETE n`,
+    { userId: userAId }
   );
   await session.close();
-  await driver.close();
-
-  // Delete the test user from Supabase auth
-  // Requires service role key — swap client temporarily
-  const adminSupabase = createClient(
-    process.env.SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''  // ← add this to your .env
-  );
-  await adminSupabase.auth.admin.deleteUser(userId);
+  await neo4jDriver.close();
+  await pool.end();
 });
 
-// ── Tests ────────────────────────────────────────────────────────────────────
-describe('LexiGraph API', () => {
+// ── Tests ─────────────────────────────────────────────────────────────────────
+describe('LexiGraph API — Azure edition', () => {
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  it('should register user A and return tokens', async () => {
+    const res = await fetch(`${BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(USER_A),
+    });
+    expect(res.status).toBe(201);
+    const json = await res.json() as any;
+    expect(json).toHaveProperty('access_token');
+    expect(json).toHaveProperty('refresh_token');
+    expect(json.user.email).toBe(USER_A.email);
+    tokenA = json.access_token;
+    userAId = json.user.id;
+  });
+
+  it('should register user B and return tokens', async () => {
+    const res = await fetch(`${BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(USER_B),
+    });
+    expect(res.status).toBe(201);
+    const json = await res.json() as any;
+    expect(json).toHaveProperty('access_token');
+    tokenB = json.access_token;
+  });
+
+  it('should login with correct credentials', async () => {
+    const res = await fetch(`${BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: USER_A.email, password: USER_A.password }),
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json).toHaveProperty('access_token');
+  });
+
+  it('should reject login with wrong password', async () => {
+    const res = await fetch(`${BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: USER_A.email, password: 'wrongpassword' }),
+    });
+    expect(res.status).toBe(401);
+  });
 
   it('should reject requests without a token', async () => {
     const res = await fetch(`${BASE}/ingest`, {
@@ -78,79 +109,97 @@ describe('LexiGraph API', () => {
     expect(res.status).toBe(401);
   });
 
-  it('should ingest and query document as authenticated user', async () => {
-    const ingestRes = await fetch(`${BASE}/ingest`, {
+  // ── Ingest + Query ────────────────────────────────────────────────────────
+  it('should ingest a document as user A', async () => {
+    const res = await fetch(`${BASE}/ingest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,   // ← token added
+        'Authorization': `Bearer ${tokenA}`,
       },
       body: JSON.stringify({
-        text: 'Alice visited Neo4j.',
+        text: 'Alice visited Neo4j headquarters in San Francisco.',
         metadata: { testRun: TEST_RUN },
       }),
     });
-    expect(ingestRes.status).toBe(200);
-    const ingestJson = await ingestRes.json();
-    expect(ingestJson.success).toBeTruthy();
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.success).toBeTruthy();
+  }, 30000);
 
-    const queryRes = await fetch(`${BASE}/query`, {
+  it('should query and return answer + sources for user A', async () => {
+    const res = await fetch(`${BASE}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,   // ← token added
+        'Authorization': `Bearer ${tokenA}`,
       },
       body: JSON.stringify({ query: 'Who visited Neo4j?' }),
     });
-    expect(queryRes.status).toBe(200);
-    const queryJson = await queryRes.json();
-    expect(queryJson).toHaveProperty('answer');
-    expect(typeof queryJson.answer).toBe('string');
-    expect(queryJson).toHaveProperty('sources');
-    expect(queryJson.sources).toHaveProperty('vector');
-    expect(queryJson.sources).toHaveProperty('graph');
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json).toHaveProperty('answer');
+    expect(typeof json.answer).toBe('string');
+    expect(json).toHaveProperty('sources');
+    expect(json.sources).toHaveProperty('vector');
+    expect(json.sources).toHaveProperty('graph');
   }, 30000);
 
-  it('should not return context across users', async () => {
-    // Register and login a second user
-    const email2 = `testuser2_${Date.now()}@lexigraph.test`;
-    await fetch(`${BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email2, password: TEST_PASSWORD }),
-    });
-    const login2 = await fetch(`${BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email2, password: TEST_PASSWORD }),
-    });
-    const { access_token: token2, user: user2 } = await login2.json();
-
-    // Query as user2 — should get no relevant context from user1's data
-    const queryRes = await fetch(`${BASE}/query`, {
+  // ── User Isolation ────────────────────────────────────────────────────────
+  it('should enforce user isolation — user B cannot see user A data', async () => {
+    const res = await fetch(`${BASE}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token2}`,
+        'Authorization': `Bearer ${tokenB}`,
       },
       body: JSON.stringify({ query: 'Who visited Neo4j?' }),
     });
-    expect(queryRes.status).toBe(200);
-    const queryJson = await queryRes.json();
-
-    // Assert response shape
-    expect(queryJson).toHaveProperty('answer');
-    expect(queryJson).toHaveProperty('sources');
-
-    // Assert isolation — user2 should have empty sources
-    expect(queryJson.sources.vector).toHaveLength(0);
-    expect(queryJson.sources.graph).toHaveLength(0);
-
-    // Cleanup user2
-    const adminSupabase = createClient(
-      process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    );
-    await adminSupabase.auth.admin.deleteUser(user2.id);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    // User B has no data — vector and graph results must be empty
+    expect(json.sources.vector).toHaveLength(0);
+    expect(json.sources.graph).toHaveLength(0);
   }, 30000);
+
+  // ── Documents ─────────────────────────────────────────────────────────────
+  it('should return documents list for user A', async () => {
+    const res = await fetch(`${BASE}/documents`, {
+      headers: { 'Authorization': `Bearer ${tokenA}` },
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(Array.isArray(json.documents ?? json)).toBe(true);
+  });
+
+  it('should return empty documents list for user B', async () => {
+    const res = await fetch(`${BASE}/documents`, {
+      headers: { 'Authorization': `Bearer ${tokenB}` },
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    const docs = json.documents ?? json;
+    expect(docs).toHaveLength(0);
+  });
+
+  // ── Token Refresh ─────────────────────────────────────────────────────────
+  it('should issue a new access token via refresh token', async () => {
+    // Re-login to get a fresh refresh token
+    const loginRes = await fetch(`${BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: USER_A.email, password: USER_A.password }),
+    });
+    const { refresh_token } = await loginRes.json() as any;
+
+    const refreshRes = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token }),
+    });
+    expect(refreshRes.status).toBe(200);
+    const json = await refreshRes.json() as any;
+    expect(json).toHaveProperty('access_token');
+  });
+
 });

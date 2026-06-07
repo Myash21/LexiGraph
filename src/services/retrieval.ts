@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { pool } from '../config/azure-db';
 import { neo4jDriver } from '../config/neo4j';
 import { getEmbedding } from '../config/embeddings';
 import { extractGraphEntities } from './extraction';
@@ -7,56 +7,61 @@ import { normalizeText, canonicalizeQueryNodeIds } from '../utils/normalize';
 import { logger } from '../utils/logger';
 
 /**
- * Perform a Hybrid Search (Vector + Graph) to answer user queries with high context.
+ * answerQuery — Hybrid GraphRAG retrieval
+ *
+ * Vector search: Azure PostgreSQL + pgvector (replaces Supabase RPC)
+ * Graph search:  Neo4j (unchanged)
  */
-export const answerQuery = async (query: string, userId: string): Promise<{         // ← was Promise<string>
+export const answerQuery = async (query: string, userId: string): Promise<{
     answer: string;
     sources: {
-        vector: Array<{
-            content: string;
-            metadata: Record<string, any>;
-            similarity: number;
-        }>;
+        vector: Array<{ content: string; metadata: Record<string, any>; similarity: number }>;
         graph: string[];
     };
 }> => {
-    logger.log(`Processing Query: "${query} for user ${userId}"`);
+    logger.log(`Processing Query: "${query}" for user ${userId}`);
 
-    // --- 1. Vector Search (Semantic Context) ---
-    logger.log("Generating query embedding and querying vector DB...");
+    // --- 1. Vector Search (Azure PostgreSQL + pgvector) ---
+    logger.log('Generating query embedding and querying Azure PostgreSQL vector DB...');
     const queryEmbedding = await getEmbedding(query);
+    const embeddingLiteral = `[${queryEmbedding.join(',')}]`;
 
-    // Calls a Supabase RPC function we define in SQL (match_documents)
-    const { data: vectorResults, error: vectorError } = await supabase.rpc('match_documents', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.5, // Only get somewhat relevant chunks
-        match_count: 3,        // Top K chunks
-        p_user_id: userId
-    });
+    // Replaces: supabase.rpc('match_documents', {...})
+    // The SQL logic is identical to the Supabase match_documents function —
+    // now executed directly via the pg Pool.
+    const { rows: vectorResults } = await pool.query<{
+        id: string;
+        content: string;
+        metadata: Record<string, any>;
+        similarity: number;
+    }>(
+        `SELECT
+            id,
+            content,
+            metadata,
+            1 - (embedding <=> $1::vector) AS similarity
+         FROM documents
+         WHERE user_id = $2
+           AND 1 - (embedding <=> $1::vector) > $3
+         ORDER BY similarity DESC
+         LIMIT $4`,
+        [embeddingLiteral, userId, 0.5, 3]
+    );
 
-    if (vectorError) {
-        logger.error("Vector Search Error:", vectorError);
-    }
-    const vectorContextText = (vectorResults || []).map((v: any) => v.content).join('\n---\n');
-    logger.log("vectorResults.length: ", vectorResults.length);
-    logger.log("vectorContextText: ", vectorContextText);
+    const vectorContextText = vectorResults.map(v => v.content).join('\n---\n');
+    logger.log('vectorResults.length:', vectorResults.length);
 
-    // --- 2. Graph Search (Relational Context) ---
-    logger.log("Extracting entities from query and traversing graph DB...");
-    // We use the same extraction LLM to figure out what entities the user is asking about
+    // --- 2. Graph Search (Neo4j — unchanged) ---
+    logger.log('Extracting entities from query and traversing graph DB...');
     const queryEntities = await extractGraphEntities(query);
-    logger.log("queryEntities: ", JSON.stringify(queryEntities))
     const nodeIds = queryEntities.nodes.map(n => n.id);
-    logger.log("nodeIds: ", nodeIds)
 
-    let graphContextText = "";
+    let graphContextText = '';
     if (nodeIds.length > 0) {
         const canonicalNodeIds = canonicalizeQueryNodeIds(nodeIds);
-        logger.log('canonicalNodeIds:', canonicalNodeIds);
 
         const session = neo4jDriver.session();
         try {
-            // Find 1-hop neighborhood for all candidate node IDs (strict canonical match)
             const result = await session.run(`
                 UNWIND $nodeIds AS id
                 MATCH (n:Entity {userId: $userId})
@@ -66,41 +71,31 @@ export const answerQuery = async (query: string, userId: string): Promise<{     
                 LIMIT 30
             `, { nodeIds: canonicalNodeIds, userId });
 
-            graphContextText = result.records.map(rec =>
-                `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
-            ).join('\n');
-
+            graphContextText = result.records
+                .map(rec => `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`)
+                .join('\n');
         } catch (err) {
-            logger.error("Graph Traversal Error:", err);
+            logger.error('Graph Traversal Error:', err);
         } finally {
             await session.close();
         }
 
+        // Fallback: lenient partial match
         if (!graphContextText) {
-            // Fallback: try lenient partial string matching by raw extracted ids
             const fallbackSession = neo4jDriver.session();
             try {
-                const bareNames = nodeIds.map(id => {
-                    const normalized = normalizeText(id);
-                    const match = normalized.match(/^[A-Z]+_(.+)$/);
-                    return match ? match[1] : normalized;
-                });
-                //Fallback Cypher
                 const fallbackResult = await fallbackSession.run(`
-                UNWIND $bareNames AS name
-                MATCH (n:Entity {userId: $userId})
-                WHERE n.id ENDS WITH name OR n.id CONTAINS name
-                OPTIONAL MATCH (n)-[r]-(neighbor:Entity {userId: $userId})
-                RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
-                LIMIT 30
-                `, {
-                    bareNames: nodeIds,
-                    userId: userId
-                });
+                    UNWIND $bareNames AS name
+                    MATCH (n:Entity {userId: $userId})
+                    WHERE n.id ENDS WITH name OR n.id CONTAINS name
+                    OPTIONAL MATCH (n)-[r]-(neighbor:Entity {userId: $userId})
+                    RETURN n.id AS source, type(r) AS relation, neighbor.id AS target
+                    LIMIT 30
+                `, { bareNames: nodeIds, userId });
 
-                graphContextText = fallbackResult.records.map(rec =>
-                    `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`
-                ).join('\n');
+                graphContextText = fallbackResult.records
+                    .map(rec => `${rec.get('source')} -[${rec.get('relation')}]-> ${rec.get('target')}`)
+                    .join('\n');
             } catch (err) {
                 logger.error('Graph Fallback Traversal Error:', err);
             } finally {
@@ -110,23 +105,23 @@ export const answerQuery = async (query: string, userId: string): Promise<{     
     }
 
     logger.log('graphContextText:', graphContextText || 'No relational context found.');
-    // --- 3. Synthesize Final Answer with LLM ---
-    logger.log("Synthesizing final response...");
 
+    // --- 3. Synthesize Final Answer (unchanged) ---
+    logger.log('Synthesizing final response...');
     const finalPrompt = `
     You are LexiGraph, a highly intelligent Knowledge Assistant.
-    Answer the user's question based strictly on the provided Contexts. 
+    Answer the user's question based strictly on the provided Contexts.
     If the contexts do not contain the answer, say "I don't have enough information."
-    
+
     VECTOR CONTEXT (Semantic Chunks):
-    ${vectorContextText || "No semantic context found."}
-    
+    ${vectorContextText || 'No semantic context found.'}
+
     GRAPH CONTEXT (Entity Relations):
-    ${graphContextText || "No relational context found."}
-    
+    ${graphContextText || 'No relational context found.'}
+
     USER QUESTION:
     "${query}"
-    
+
     Your factual answer:
     `;
 
@@ -134,12 +129,11 @@ export const answerQuery = async (query: string, userId: string): Promise<{     
     const answer: string = typeof response.content === 'string'
         ? response.content
         : JSON.stringify(response.content);
-    logger.log(answer);
 
     return {
         answer,
         sources: {
-            vector: (vectorResults || []).map((v: any) => ({
+            vector: vectorResults.map(v => ({
                 content: v.content,
                 metadata: v.metadata || {},
                 similarity: v.similarity,

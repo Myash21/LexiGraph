@@ -16,7 +16,7 @@ DROP FUNCTION IF EXISTS match_documents(vector, float, int);
 -- Updated match_documents with user isolation
 -- Note: RPC functions bypass RLS, so we filter explicitly via p_user_id
 CREATE OR REPLACE FUNCTION match_documents(
-    query_embedding VECTOR(768),
+    query_embedding VECTOR(384),
     match_threshold FLOAT,
     match_count INT,
     p_user_id UUID
