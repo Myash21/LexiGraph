@@ -48,7 +48,13 @@ const start = async () => {
         await server.register(rateLimit, {
             max: 10,
             timeWindow: '1 minute',
-            allowList: (request: import('fastify').FastifyRequest) => request.method === 'OPTIONS',
+            allowList: (request: import('fastify').FastifyRequest) => {
+                // Skip rate limiting for CORS preflight and local/test traffic
+                if (request.method === 'OPTIONS') return true;
+                if (process.env.NODE_ENV === 'test') return true;
+                const ip = request.ip;
+                return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+            },
         });
 
         await server.register(apiRoutes);
