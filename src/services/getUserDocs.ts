@@ -1,26 +1,32 @@
-import { supabase } from '../config/supabase';
+import { pool } from '../config/azure-db';
 import { logger } from '../utils/logger';
 
+/**
+ * getUserDocuments — Azure PostgreSQL
+ * Replaces: supabase.from('documents').select(...)
+ */
 export const getUserDocuments = async (userId: string): Promise<Array<{
     id: string;
     source: string;
     createdAt: string;
+    blobUrl?: string;
 }>> => {
-    const { data, error } = await supabase
-        .from('documents')
-        .select('id, metadata, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        logger.error('Failed to fetch documents:', error);
-        throw new Error('Failed to fetch documents');
-    }
+    const { rows } = await pool.query<{
+        id: string;
+        metadata: Record<string, any>;
+        created_at: string;
+    }>(
+        `SELECT id, metadata, created_at
+         FROM documents
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+    );
 
     const seen = new Set<string>();
     const documents = [];
 
-    for (const row of data || []) {
+    for (const row of rows) {
         const source = row.metadata?.source;
         if (source && !seen.has(source)) {
             seen.add(source);
@@ -28,10 +34,11 @@ export const getUserDocuments = async (userId: string): Promise<Array<{
                 id: row.id,
                 source,
                 createdAt: row.created_at,
+                blobUrl: row.metadata?.blobUrl,   // ← new: blob URL if file was uploaded
             });
         }
     }
 
-    logger.log(`getUserDocuments → ${documents.length} documents for user ${userId}`);
+    logger.log(`[getUserDocs] ${documents.length} documents for user ${userId}`);
     return documents;
 };
